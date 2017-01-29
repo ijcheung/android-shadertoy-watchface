@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.example.android.opengl;
+package com.espersoftworks.shadertoy.watchface.opengl;
 
 import android.content.Context;
 import android.opengl.GLSurfaceView;
@@ -32,7 +32,7 @@ public class MyGLSurfaceView extends GLSurfaceView {
     public MyGLSurfaceView(Context context, ShaderToyRenderer.Shader shader) {
         super(context);
         setEGLContextClientVersion(2);
-        setEGLConfigChooser(8 , 8, 8, 8, 16, 0);
+        setEGLConfigChooser(8, 8, 8, 8, 16, 0);
 
         mRenderer   = new ShaderToyRenderer(context, shader);
         setRenderer(mRenderer);

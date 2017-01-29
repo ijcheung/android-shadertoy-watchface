@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.example.android.opengl;
+package com.espersoftworks.shadertoy.watchface;
 
 import android.app.Activity;
 import android.content.Context;
@@ -25,6 +25,11 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Spinner;
+
+import com.espersoftworks.shadertoy.watchface.opengl.MyGLSurfaceView;
+import com.espersoftworks.shadertoy.watchface.opengl.ShaderToyRenderer;
+import com.espersoftworks.shadertoy.watchface.util.GLUtils;
+import com.example.android.opengl.R;
 
 import java.util.ArrayList;
 import java.util.List;
