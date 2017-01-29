@@ -48,12 +48,13 @@ public class OpenGLES20Activity extends Activity implements AdapterView.OnItemSe
     }
 
     private ShaderSpec[] shaders = new ShaderSpec[]{
+            new ShaderSpec("Slipstream", R.raw.slipstream, new int[]{R.drawable.tex08, R.drawable.tex03, R.drawable.tex09}),
             new ShaderSpec("Hypnobar", R.raw.hypnobar, new int[]{}),
             new ShaderSpec("Plasma circles", R.raw.plasma_circles, new int[]{}),
             new ShaderSpec("Acid Kaleidoscope", R.raw.acid_kaleidoscope, new int[]{}),
             new ShaderSpec("Phase Engine", R.raw.phase_engine, new int[]{}),
             new ShaderSpec("Alien Magma", R.raw.alien_magma, new int[]{R.drawable.tex16}),
-            new ShaderSpec("Burning Mandelbrot", R.raw.burning_mandelbrot, new int[]{R.drawable.tex16}),
+            new ShaderSpec("Burning Mandelbrot", R.raw.burning_mandelbrot, new int[]{R.drawable.tex16})
             // These are too slow.
 //            new ShaderSpec("Clouds", R.raw.clouds, new int[]{R.drawable.tex16}),
 //            new ShaderSpec("Galaxy", R.raw.galaxy, new int[]{R.drawable.tex16}),
