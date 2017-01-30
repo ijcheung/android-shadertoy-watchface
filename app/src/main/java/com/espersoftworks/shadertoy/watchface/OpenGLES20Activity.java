@@ -16,108 +16,20 @@
 package com.espersoftworks.shadertoy.watchface;
 
 import android.app.Activity;
-import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
-import android.widget.Spinner;
 
 import com.espersoftworks.shadertoy.watchface.opengl.MyGLSurfaceView;
-import com.espersoftworks.shadertoy.watchface.opengl.ShaderToyRenderer;
-import com.espersoftworks.shadertoy.watchface.util.GLUtils;
-import com.example.android.opengl.R;
+import com.espersoftworks.shadertoy.watchface.util.ShaderSpec;
 
-import java.util.ArrayList;
-import java.util.List;
-
-public class OpenGLES20Activity extends Activity implements AdapterView.OnItemSelectedListener {
-    public static class ShaderSpec {
-        String name;
-        int fragmentSrcResource;
-        int[] textureResources;
-
-        ShaderSpec(String name, int fragmentSrcResource, int[] textureResources) {
-            this.name = name;
-            this.fragmentSrcResource = fragmentSrcResource;
-            this.textureResources = textureResources;
-        }
-
-        ShaderToyRenderer.Shader load(Context context) {
-            String fragmentSrc = GLUtils.loadText(context, fragmentSrcResource);
-            return new ShaderToyRenderer.Shader(fragmentSrc, textureResources);
-        }
-    }
-
-    private ShaderSpec[] shaders = new ShaderSpec[]{
-            new ShaderSpec("Slipstream", R.raw.slipstream, new int[]{R.drawable.tex08, R.drawable.tex03, R.drawable.tex09}),
-            new ShaderSpec("Hypnobar", R.raw.hypnobar, new int[]{}),
-            new ShaderSpec("Plasma circles", R.raw.plasma_circles, new int[]{}),
-            new ShaderSpec("Acid Kaleidoscope", R.raw.acid_kaleidoscope, new int[]{}),
-            new ShaderSpec("Phase Engine", R.raw.phase_engine, new int[]{}),
-            new ShaderSpec("Alien Magma", R.raw.alien_magma, new int[]{R.drawable.tex16}),
-            new ShaderSpec("Burning Mandelbrot", R.raw.burning_mandelbrot, new int[]{R.drawable.tex16})
-            // These are too slow.
-//            new ShaderSpec("Clouds", R.raw.clouds, new int[]{R.drawable.tex16}),
-//            new ShaderSpec("Galaxy", R.raw.galaxy, new int[]{R.drawable.tex16}),
-    };
-    private int selectedShader = 0;
+public class OpenGLES20Activity extends Activity {
+    private ShaderSpec spec = new ShaderSpec("Slipstream", R.raw.slipstream, new int[]{R.drawable.tex08, R.drawable.tex03, R.drawable.tex09});
     private GLSurfaceView mGLView;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        if (savedInstanceState != null)
-            selectedShader = savedInstanceState.getInt("selectedShader");
         super.onCreate(savedInstanceState);
-    }
-
-    public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.activity_menu, menu);
-
-        Spinner spinner = (Spinner) menu.getItem(0).getActionView().findViewById(R.id.spinner);
-        List<String> list = new ArrayList<String>();
-        for (int i = 0; i < shaders.length; ++i)
-            list.add(shaders[i].name);
-        ArrayAdapter<String> dataAdapter = new ArrayAdapter<String>(this,
-                android.R.layout.simple_spinner_item, list);
-        dataAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner.setAdapter(dataAdapter);
-        spinner.setOnItemSelectedListener(this);
-        spinner.setSelection(selectedShader);
-
-        return super.onCreateOptionsMenu(menu);
-    }
-
-    public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-        selectedShader = pos;
-        mGLView = new MyGLSurfaceView(this, shaders[pos].load(this));
+        mGLView = new MyGLSurfaceView(this, spec.load(this));
         setContentView(mGLView);
-    }
-
-    public void onNothingSelected(AdapterView<?> parent) {
-        // Another interface callback
-    }
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        outState.putInt("selectedShader", selectedShader);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        if (mGLView != null)
-            mGLView.onPause();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (mGLView != null)
-            mGLView.onResume();
     }
 }

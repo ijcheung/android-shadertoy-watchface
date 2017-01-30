@@ -16,29 +16,49 @@
 -->
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.android.opengl"
+    package="com.espersoftworks.shadertoy.watchface"
     android:versionCode="1"
     android:versionName="1.0" >
-
-    <uses-sdk
-            android:minSdkVersion="19"
-            android:targetSdkVersion="19" />
+    
+    <uses-feature android:name="android.hardware.type.watch" />
 
     <!-- Tell the system this app requires OpenGL ES 2.0. -->
     <uses-feature android:glEsVersion="0x00020000" android:required="true" />
 
     <application
             android:icon="@drawable/fist"
-            android:label="Android Hackday"
+            android:label="Shader Toy"
             android:allowBackup="true" >
         <activity
-                android:name="com.example.android.opengl.OpenGLES20Activity"
-                android:label="Android Hackday" >
+                android:name="com.espersoftworks.shadertoy.watchface.OpenGLES20Activity"
+                android:label="Shader Toy" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".ShaderToyWatchFaceService"
+            android:label="@string/shader_toy_name"
+            android:permission="android.permission.BIND_WALLPAPER" >
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/watch_face" />
+            <meta-data
+                android:name="com.google.android.wearable.watchface.preview"
+                android:resource="@drawable/preview_shader_toy" />
+            <meta-data
+                android:name="com.google.android.wearable.watchface.preview_circular"
+                android:resource="@drawable/preview_shader_toy" />
+            <meta-data
+                android:name="com.google.android.wearable.watchface.companionConfigurationAction"
+                android:value="com.example.android.wearable.watchface.CONFIG_OPENGL" />
+
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+                <category android:name="com.google.android.wearable.watchface.category.WATCH_FACE" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

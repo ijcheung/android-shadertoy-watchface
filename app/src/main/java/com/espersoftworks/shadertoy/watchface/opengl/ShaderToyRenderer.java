@@ -20,7 +20,7 @@ public class ShaderToyRenderer implements GLSurfaceView.Renderer {
         String fragmentSrc;
         int[] textureResources;
 
-        Shader(String fragmentSrc, int[] textureResources) {
+        public Shader(String fragmentSrc, int[] textureResources) {
             this.fragmentSrc = fragmentSrc;
             this.textureResources = textureResources;
         }

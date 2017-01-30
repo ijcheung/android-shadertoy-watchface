@@ -17,8 +17,6 @@ package com.espersoftworks.shadertoy.watchface.opengl;
 
 import android.content.Context;
 import android.opengl.GLSurfaceView;
-import android.view.MotionEvent;
-import android.view.View;
 
 /**
  * A view container where OpenGL ES graphics can be drawn on screen.
@@ -34,24 +32,8 @@ public class MyGLSurfaceView extends GLSurfaceView {
         setEGLContextClientVersion(2);
         setEGLConfigChooser(8, 8, 8, 8, 16, 0);
 
-        mRenderer   = new ShaderToyRenderer(context, shader);
+        mRenderer = new ShaderToyRenderer(context, shader);
         setRenderer(mRenderer);
         setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
-    }
-
-    @Override
-    public boolean onTouchEvent(MotionEvent e) {
-        if (e.getY() > 300) {
-            mRenderer.onTouchEvent(e.getX(), e.getY(),
-                    (e.getActionMasked() & MotionEvent.ACTION_UP) != 0);
-            this.setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_IMMERSIVE);
-        }
-        return true;
     }
 }

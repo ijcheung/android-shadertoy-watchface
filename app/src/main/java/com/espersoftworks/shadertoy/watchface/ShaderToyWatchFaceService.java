@@ -1,0 +1,259 @@
+package com.espersoftworks.shadertoy.watchface;
+
+import android.opengl.GLES20;
+import android.support.wearable.watchface.Gles2WatchFaceService;
+import android.support.wearable.watchface.WatchFaceStyle;
+import android.util.Log;
+import android.view.Gravity;
+import android.view.SurfaceHolder;
+
+import com.espersoftworks.shadertoy.watchface.util.GLUtils;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
+import java.nio.ShortBuffer;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
+
+public class ShaderToyWatchFaceService extends Gles2WatchFaceService {
+    private static final String TAG = "STWFS";
+
+    /** Expected frame rate in interactive mode. */
+    private static final long FPS = 60;
+
+    /** How long each frame is displayed at expected frame rate. */
+    private static final long FRAME_PERIOD_MS = TimeUnit.SECONDS.toMillis(1) / FPS;
+
+    public static class Shader {
+        public int fragmentSrc;
+        public int[] textureResources;
+
+        public Shader(int fragmentSrc, int[] textureResources) {
+            this.fragmentSrc = fragmentSrc;
+            this.textureResources = textureResources;
+        }
+    }
+
+    static final int COORDS_PER_VERTEX = 3;
+    static final int VERTEX_STRIDE = COORDS_PER_VERTEX * 4;
+
+    static final String vertexSrc =
+            "attribute vec4 vPosition;" +
+                    "void main() {" +
+                    "   gl_Position = vPosition;" +
+                    "}";
+
+    static final String fragmentSrcHeader =
+            "precision mediump float;" +
+                    "uniform vec3      iResolution;" +           // viewport resolution (in pixels)
+                    "uniform float     iGlobalTime;" +           // shader playback time (in seconds)
+                    "uniform float     iChannelTime[4];" +       // channel playback time (in seconds)
+                    "uniform vec3      iChannelResolution[4];" + // channel resolution (in pixels)
+                    "uniform vec4      iMouse;" +                // mouse pixel coords. xy: current (if MLB down), zw: click
+                    "uniform sampler2D iChannel0;" +             // input channels x4. TODO: cube maps
+                    "uniform sampler2D iChannel1;" +
+                    "uniform sampler2D iChannel2;" +
+                    "uniform sampler2D iChannel3;" +
+                    "uniform vec4      iDate;" +                 // (year, month, day, time in seconds)
+                    "uniform float     iSampleRate;" +            // sound sample rate (i.e., 44100)
+                    "void mainImage(out vec4 fragColor, in vec2 fragCoord);" +
+                    "void main(void)" +
+                    "{" +
+                    "    mainImage(gl_FragColor, gl_FragCoord.xy);" +
+                    "}";
+
+    private int program;
+    private FloatBuffer vertexBuffer;
+    private ShortBuffer drawOrderBuffer;
+    private int drawOrderLength;
+    private Shader shader = new Shader(R.raw.slipstream, new int[]{R.drawable.tex08, R.drawable.tex03, R.drawable.tex09});
+    private GLUtils.Texture[] textures = new GLUtils.Texture[4];
+
+    private long startTime;  // time since epoch that we started.
+    private int screenWidth, screenHeight;
+    private boolean touchActive;  // True if the screen is being touched.
+    private float touchX = 0, touchY = 0;  // last screen pos that was touched
+
+    // Vertex shader inputs.
+    private int vPosition;  // vec3 the vertex position
+
+    // ShaderToy fragment shader inputs:
+    private int iResolution;
+    private int iGlobalTime;
+    private int iChannelTime;
+    private int iChannelResolution;
+    private int iMouse;
+    private int[] iChannel = new int[4];
+    private int iDate;
+    private int iSampleRate;
+
+    @Override
+    public Engine onCreateEngine() {
+        return new Engine();
+    }
+
+    private class Engine extends Gles2WatchFaceService.Engine {
+        @Override
+        public void onCreate(SurfaceHolder surfaceHolder) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onCreate");
+            }
+            super.onCreate(surfaceHolder);
+            setWatchFaceStyle(new WatchFaceStyle.Builder(ShaderToyWatchFaceService.this)
+                    .setCardPeekMode(WatchFaceStyle.PEEK_MODE_SHORT)
+                    .setBackgroundVisibility(WatchFaceStyle.BACKGROUND_VISIBILITY_INTERRUPTIVE)
+                    .setStatusBarGravity(Gravity.RIGHT | Gravity.TOP)
+                    .setHotwordIndicatorGravity(Gravity.LEFT | Gravity.TOP)
+                    .setShowSystemUiTime(false)
+                    .build());
+        }
+
+        @Override
+        public void onGlContextCreated() {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onGlContextCreated");
+            }
+            super.onGlContextCreated();
+
+            startTime = new Date().getTime();
+
+            final float squareCoords[] = {
+                    -1.0f, -1.0f, 0.0f,
+                    -1.0f, 1.0f, 0.0f,
+                    1.0f, 1.0f, 0.0f,
+                    1.0f, -1.0f, 0.0f,
+            };
+            final short drawOrder[] = {0, 1, 2, 0, 2, 3};
+            vertexBuffer = createBuffer(squareCoords);
+            drawOrderBuffer = createBuffer(drawOrder);
+            drawOrderLength = drawOrder.length;
+        }
+
+        @Override
+        public void onGlSurfaceCreated(int width, int height) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onGlSurfaceCreated: " + width + " x " + height);
+            }
+            super.onGlSurfaceCreated(width, height);
+
+            screenWidth = width;
+            screenHeight = height;
+
+            program = GLUtils.programFromSrc(vertexSrc, fragmentSrcHeader + ShaderToyWatchFaceService.this.getString(shader.fragmentSrc));
+
+            initShaderVariables();
+
+            for (int i = 0; i < shader.textureResources.length; ++i) {
+                GLES20.glActiveTexture(GLES20.GL_TEXTURE0 + i);
+                textures[i] = GLUtils.loadGLTexture(ShaderToyWatchFaceService.this, shader.textureResources[i]);
+            }
+        }
+
+        @Override
+        public void onAmbientModeChanged(boolean inAmbientMode) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onAmbientModeChanged: " + inAmbientMode);
+            }
+            super.onAmbientModeChanged(inAmbientMode);
+            invalidate();
+        }
+
+        @Override
+        public void onVisibilityChanged(boolean visible) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onVisibilityChanged: " + visible);
+            }
+            super.onVisibilityChanged(visible);
+        }
+
+        @Override
+        public void onTimeTick() {
+            super.onTimeTick();
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onTimeTick: ambient = " + isInAmbientMode());
+            }
+            invalidate();
+        }
+
+        @Override
+        public void onDraw() {
+            if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                Log.v(TAG, "onDraw");
+            }
+            super.onDraw();
+
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
+            GLES20.glUseProgram(program);
+
+            setShaderVariables();
+            drawVertexBuffer(vertexBuffer, drawOrderBuffer, drawOrderLength);
+        }
+
+        private void initShaderVariables() {
+            vPosition = GLES20.glGetAttribLocation(program, "vPosition");
+            iResolution = GLES20.glGetUniformLocation(program, "iResolution");
+            iGlobalTime = GLES20.glGetUniformLocation(program, "iGlobalTime");
+            iChannelTime = GLES20.glGetUniformLocation(program, "iChannelTime");
+            iChannelResolution = GLES20.glGetUniformLocation(program, "iChannelResolution");
+            iMouse = GLES20.glGetUniformLocation(program, "iMouse");
+            for (int i = 0; i < 3; ++i)
+                iChannel[i] = GLES20.glGetUniformLocation(program, "iChannel" + Integer.toString(i));
+            iDate = GLES20.glGetUniformLocation(program, "iDate");
+            iSampleRate = GLES20.glGetUniformLocation(program, "iSampleRate");
+        }
+
+        private void setShaderVariables() {
+            GLES20.glUniform3f(iResolution, screenWidth, screenHeight,
+                    (float) screenWidth / (float) screenHeight);
+
+            Date date = new Date();
+            float time = (float) (date.getTime() - startTime) / 1000.0f;
+            GLES20.glUniform1f(iGlobalTime, time);
+            GLES20.glUniform4f(iChannelTime, time, time, time, time);
+            for (int i = 0; i < 4; ++i) {
+                if (textures[i] == null)
+                    continue;
+                float width = textures[i].width;
+                float height = textures[i].height;
+                GLES20.glUniform3f(iChannelResolution, width, height, width / height);
+                GLES20.glUniform1i(iChannel[i], i);
+            }
+            GLES20.glUniform4f(iMouse, touchX, touchY,
+                    touchActive ? touchX : 0, touchActive ? touchY : 0);
+            GLES20.glUniform4f(iDate, date.getYear(), date.getMonth(), date.getDate(),
+                    date.getHours() * 24 * 60 + date.getMinutes() * 60 + date.getSeconds()); // ???
+            GLES20.glUniform1f(iSampleRate, 44000.0f);
+        }
+
+        private void drawVertexBuffer(FloatBuffer vertexBuffer,
+                                      ShortBuffer drawOrderBuffer,
+                                      int drawOrderLength) {
+            GLES20.glEnableVertexAttribArray(vPosition);
+            GLES20.glVertexAttribPointer(
+                    vPosition, COORDS_PER_VERTEX, GLES20.GL_FLOAT, false, VERTEX_STRIDE, vertexBuffer);
+            GLES20.glDrawElements(
+                    GLES20.GL_TRIANGLES, drawOrderLength,
+                    GLES20.GL_UNSIGNED_SHORT, drawOrderBuffer);
+            GLES20.glDisableVertexAttribArray(vPosition);
+        }
+    }
+
+    private static FloatBuffer createBuffer(float[] array) {
+        ByteBuffer bb = ByteBuffer.allocateDirect(array.length * 4);  // 4 bytes per float
+        bb.order(ByteOrder.nativeOrder());
+        FloatBuffer buffer = bb.asFloatBuffer();
+        buffer.put(array);
+        buffer.position(0);
+        return buffer;
+    }
+
+    private static ShortBuffer createBuffer(short[] array) {
+        ByteBuffer bb = ByteBuffer.allocateDirect(array.length * 2);  // 2 bytes per short
+        bb.order(ByteOrder.nativeOrder());
+        ShortBuffer buffer = bb.asShortBuffer();
+        buffer.put(array);
+        buffer.position(0);
+        return buffer;
+    }
+}
